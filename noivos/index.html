@@ -40,6 +40,15 @@ main{max-width:1240px;margin:auto;padding:34px 22px 70px}.hero{display:flex;just
 .message-actions time{float:none}
 .delete-msg{border:1px solid #ead5d2;background:#fff7f6;color:#9a4c45;border-radius:10px;padding:7px 9px;font-size:10px;font-weight:600}
 .delete-msg:hover{background:#f8e8e6}
+
+.guest-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:12px;border-top:1px solid #efede6}
+.guest-tools .field{flex:1;min-width:240px}
+.row-actions{display:flex;gap:7px;align-items:center}
+.danger-btn{border:1px solid #ead5d2;background:#fff7f6;color:#9a4c45;border-radius:9px;padding:7px 9px;font-size:9px;font-weight:600}
+.danger-btn:hover{background:#f8e8e6}
+.status-select{border:1px solid var(--line);border-radius:999px;padding:7px 10px;background:#fff;font-size:9px;font-weight:600;color:var(--olive2);min-width:132px}
+.status-select.pending{background:#f4f0e7;color:#8a7048}.status-select.confirmed{background:#e4efe8;color:#346247}
+@media(max-width:650px){.guest-tools{align-items:stretch}.guest-tools .field,.guest-tools .btn{width:100%}}
 </style>
 </head>
 <body>
@@ -76,15 +85,26 @@ main{max-width:1240px;margin:auto;padding:34px 22px 70px}.hero{display:flex;just
       <div class="filters">
         <input class="field" id="guestFilter" placeholder="Buscar convidado">
         <select class="field" id="statusFilter"><option value="all">Todos</option><option value="Sim">Confirmados</option><option value="Não">Não irão</option><option value="pending">Pendentes</option></select>
+        <select class="field" id="guestPageSize">
+          <option value="10" selected>Exibir 10 convidados</option>
+          <option value="20">Exibir 20 convidados</option>
+          <option value="30">Exibir 30 convidados</option>
+          <option value="50">Exibir 50 convidados</option>
+          <option value="100">Exibir 100 convidados</option>
+          <option value="all">Exibir todos</option>
+        </select>
       </div>
-      <div class="table-wrap"><table class="table"><thead><tr><th>Convidado</th><th>Status</th><th>Última atualização</th></tr></thead><tbody id="rsvpBody"></tbody></table></div>
-      <div class="load-more-wrap"><button class="btn secondary load-more" id="loadMoreGuests" type="button">Ver mais convidados</button></div>
+      <div class="guest-tools">
+        <input class="field" id="newGuestName" placeholder="Nome do novo convidado">
+        <button class="btn" id="addGuestBtn" type="button">+ Adicionar convidado</button>
+      </div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Convidado</th><th>Status</th><th>Última atualização</th><th>Ações</th></tr></thead><tbody id="rsvpBody"></tbody></table></div>
     </div>
   </section>
 
   <section class="section">
     <div class="section-head"><div><div class="kicker">Lista de casamento</div><h2>Andamento dos presentes</h2></div></div>
-    <div class="panel"><div class="gift-progress" id="giftProgress"></div><div class="note">As cotas abaixo consideram pagamentos que o próprio convidado marcou como realizados. Ainda não existe confirmação automática pelo banco/Pix.</div></div>
+    <div class="panel"><div class="gift-progress" id="giftProgress"></div><div class="note">As cotas abaixo consideram somente pagamentos que os noivos marcaram como <strong>Pix realizado</strong> após conferirem o recebimento na conta.</div></div>
   </section>
 
   <section class="section">
@@ -110,7 +130,7 @@ const gifts=[
   {id:'sofa',name:'Ajuda para o Sofá',max:10},
   {id:'bedspread',name:'Cobre Leito Queen',max:1}
 ];
-let key=sessionStorage.getItem('jc_admin_key')||'', data=null, guestLimit=30;
+let key=sessionStorage.getItem('jc_admin_key')||'', data=null, guestLimit=10;
 const $=id=>document.getElementById(id);
 const money=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v||0));
 const date=v=>v?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(v)):'—';
@@ -127,7 +147,7 @@ function render(){
   showApp();
   const guests=data.guests||[], contributions=data.contributions||[], messages=(data.messages||[]).filter(x=>x.is_visible!==false);
   const yes=guests.filter(g=>g.attendance==='Sim').length,no=guests.filter(g=>g.attendance==='Não').length,pending=guests.length-yes-no;
-  const informed=contributions.filter(c=>['reported_paid','confirmed'].includes(c.status));
+  const informed=contributions.filter(c=>c.status==='confirmed');
   $('mTotal').textContent=guests.length;$('mYes').textContent=yes;$('mNo').textContent=no;$('mPending').textContent=pending;$('mGiftTotal').textContent=money(informed.reduce((s,c)=>s+Number(c.total||0),0));
   $('lastUpdate').textContent='Atualizado em '+date(new Date());$('contribCount').textContent=contributions.length+' registro(s)';$('messageCount').textContent=messages.length+' recado(s)';
   renderGuests();renderContributions();renderMessages();renderGiftProgress();
@@ -135,22 +155,38 @@ function render(){
 function renderGuests(){
   const q=$('guestFilter').value.trim().toLowerCase(), status=$('statusFilter').value;
   const rows=(data.guests||[]).filter(g=>!q||g.name.toLowerCase().includes(q)).filter(g=>status==='all'||(status==='pending'?!g.attendance:g.attendance===status));
-  const visible=rows.slice(0,guestLimit);
+  const visible=guestLimit===Infinity?rows:rows.slice(0,guestLimit);
   $('rsvpCount').textContent=visible.length<rows.length?('Mostrando '+visible.length+' de '+rows.length+' convidado(s)'):(rows.length+' convidado(s)');
-  $('rsvpBody').innerHTML=visible.map(g=>`<tr><td><strong>${esc(g.name)}</strong></td><td>${g.attendance==='Sim'?'<span class="badge yes">Confirmado</span>':g.attendance==='Não'?'<span class="badge no">Não irá</span>':'<span class="badge pending">Pendente</span>'}</td><td>${date(g.updated_at)}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">Nenhum convidado encontrado.</td></tr>';
-  const more=$('loadMoreGuests');
-  if(more){more.style.display=visible.length<rows.length?'inline-flex':'none';more.textContent=visible.length<rows.length?('Ver mais '+Math.min(30,rows.length-visible.length)+' convidados'):'Todos exibidos'}
+  $('rsvpBody').innerHTML=visible.map(g=>`<tr><td><strong>${esc(g.name)}</strong></td><td>${g.attendance==='Sim'?'<span class="badge yes">Confirmado</span>':g.attendance==='Não'?'<span class="badge no">Não irá</span>':'<span class="badge pending">Pendente</span>'}</td><td>${date(g.updated_at)}</td><td><div class="row-actions"><button class="danger-btn" type="button" data-delete-guest="${esc(g.name)}">Excluir</button></div></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Nenhum convidado encontrado.</td></tr>';
 }
 function renderContributions(){
   const rows=data.contributions||[];
   $('contribBody').innerHTML=rows.map(c=>{
     const items=(c.wedding_contribution_items||[]).map(i=>`${esc(i.gift_name)} × ${i.quantity}`).join('<br>');
-    const status=c.status==='confirmed'?'<span class="badge confirmed">Confirmado</span>':c.status==='reported_paid'?'<span class="badge paid">Pagamento informado</span>':c.status==='cancelled'?'<span class="badge no">Cancelado</span>':'<span class="badge generated">Pix gerado</span>';
+    const confirmed=c.status==='confirmed';
+    const status=`<select class="status-select ${confirmed?'confirmed':'pending'}" data-contribution-status="${c.id}">
+      <option value="reported_paid" ${confirmed?'':'selected'}>Pix pendente</option>
+      <option value="confirmed" ${confirmed?'selected':''}>Pix realizado</option>
+    </select>`;
     return `<tr><td><strong>${esc(c.buyer_name)}</strong></td><td>${items||'—'}</td><td><strong>${money(c.total)}</strong></td><td>${status}</td><td>${esc(c.message||'—')}</td><td>${date(c.created_at)}</td></tr>`;
   }).join('')||'<tr><td colspan="6" class="empty">Ainda não há presentes registrados.</td></tr>';
 }
+$('contribBody').onchange=async e=>{
+  const sel=e.target.closest('[data-contribution-status]');
+  if(!sel)return;
+  const id=Number(sel.dataset.contributionStatus),status=sel.value;
+  sel.disabled=true;
+  try{
+    const res=await fetch(API,{method:'PATCH',headers:{'x-wedding-admin-key':key,'Content-Type':'application/json'},body:JSON.stringify({action:'set_contribution_status',id,status})});
+    if(!res.ok)throw new Error(await res.text());
+    await load();
+  }catch(err){
+    alert('Não foi possível alterar o status do Pix.');
+    await load();
+  }
+};
 function renderGiftProgress(){
-  const paid=(data.contributions||[]).filter(c=>['reported_paid','confirmed'].includes(c.status));
+  const paid=(data.contributions||[]).filter(c=>c.status==='confirmed');
   const count={};
   paid.forEach(c=>(c.wedding_contribution_items||[]).forEach(i=>count[i.gift_id]=(count[i.gift_id]||0)+Number(i.quantity||0)));
   $('giftProgress').innerHTML=gifts.map(g=>{const n=Math.min(g.max,count[g.id]||0),pct=Math.min(100,(n/g.max)*100);return `<div class="gift-card"><h3>${esc(g.name)}</h3><div class="progress-row"><span>Cotas preenchidas</span><strong>${n}/${g.max}</strong></div><div class="bar"><i style="width:${pct}%"></i></div></div>`}).join('');
@@ -167,7 +203,7 @@ $('messageList').onclick=async e=>{
   if(!confirm('Excluir este recado do site?'))return;
   btn.disabled=true;btn.textContent='Excluindo...';
   try{
-    const res=await fetch(API,{method:'DELETE',headers:{'x-wedding-admin-key':key,'Content-Type':'application/json'},body:JSON.stringify({id})});
+    const res=await fetch(API,{method:'DELETE',headers:{'x-wedding-admin-key':key,'Content-Type':'application/json'},body:JSON.stringify({action:'delete_message',id})});
     if(!res.ok)throw new Error('delete');
     data.messages=(data.messages||[]).filter(m=>Number(m.id)!==id);
     renderMessages();
@@ -180,7 +216,39 @@ $('messageList').onclick=async e=>{
 $('loginForm').onsubmit=async e=>{e.preventDefault();key=$('accessKey').value.trim();$('loginError').classList.remove('show');$('loginBtn').disabled=true;$('loginBtn').textContent='Entrando...';try{await load();sessionStorage.setItem('jc_admin_key',key)}catch(err){key='';sessionStorage.removeItem('jc_admin_key');$('loginError').textContent=err.message==='unauthorized'?'Código de acesso inválido.':'Servidor temporariamente indisponível. Tente novamente em instantes.';$('loginError').classList.add('show')}finally{$('loginBtn').disabled=false;$('loginBtn').textContent='Entrar'}};
 $('logoutBtn').onclick=()=>{sessionStorage.removeItem('jc_admin_key');key='';data=null;$('accessKey').value='';showLogin()};
 $('refreshBtn').onclick=async()=>{try{$('refreshBtn').disabled=true;await load()}finally{$('refreshBtn').disabled=false}};
-$('guestFilter').oninput=()=>{guestLimit=30;renderGuests()};$('statusFilter').onchange=()=>{guestLimit=30;renderGuests()};$('loadMoreGuests').onclick=()=>{guestLimit+=30;renderGuests()};
+$('guestFilter').oninput=renderGuests;
+$('statusFilter').onchange=renderGuests;
+$('guestPageSize').onchange=()=>{guestLimit=$('guestPageSize').value==='all'?Infinity:Number($('guestPageSize').value||10);renderGuests()};
+$('addGuestBtn').onclick=async()=>{
+  const name=$('newGuestName').value.trim().replace(/\s+/g,' ');
+  if(name.length<2)return alert('Digite o nome do convidado.');
+  const confirmKey=prompt('Digite a senha da Área dos Noivos para confirmar a inclusão:');
+  if(confirmKey===null)return;
+  const btn=$('addGuestBtn');btn.disabled=true;btn.textContent='Adicionando...';
+  try{
+    const res=await fetch(API,{method:'POST',headers:{'x-wedding-admin-key':key,'x-wedding-confirm-key':confirmKey,'Content-Type':'application/json'},body:JSON.stringify({action:'add_guest',name})});
+    const body=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(body.error||'Erro ao adicionar');
+    $('newGuestName').value='';
+    await load();
+    alert('Convidado adicionado com sucesso.');
+  }catch(err){alert(err.message||'Não foi possível adicionar o convidado.')}finally{btn.disabled=false;btn.textContent='+ Adicionar convidado'}
+};
+$('rsvpBody').onclick=async e=>{
+  const btn=e.target.closest('[data-delete-guest]');
+  if(!btn)return;
+  const name=btn.dataset.deleteGuest;
+  if(!confirm('Tem certeza que deseja excluir '+name+' da lista de convidados?'))return;
+  const confirmKey=prompt('Digite a senha da Área dos Noivos para confirmar a exclusão:');
+  if(confirmKey===null)return;
+  btn.disabled=true;btn.textContent='Excluindo...';
+  try{
+    const res=await fetch(API,{method:'DELETE',headers:{'x-wedding-admin-key':key,'x-wedding-confirm-key':confirmKey,'Content-Type':'application/json'},body:JSON.stringify({action:'delete_guest',name})});
+    const body=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(body.error||'Erro ao excluir');
+    await load();
+  }catch(err){alert(err.message||'Não foi possível excluir o convidado.');btn.disabled=false;btn.textContent='Excluir'}
+};
 if(key){load().catch(()=>{sessionStorage.removeItem('jc_admin_key');key='';showLogin()})}
 </script>
 </body>
