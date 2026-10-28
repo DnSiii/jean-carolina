@@ -99,7 +99,8 @@ const gifts=[
   {id:'pan',name:'Frigideira Antiaderente',max:1},
   {id:'kettle',name:'Chaleira Elétrica',max:1},
   {id:'rack',name:'Rack de TV',max:3},
-  {id:'sofa',name:'Ajuda para o Sofá',max:10}
+  {id:'sofa',name:'Ajuda para o Sofá',max:10},
+  {id:'bedspread',name:'Cobre Leito Queen',max:1}
 ];
 let key=sessionStorage.getItem('jc_admin_key')||'', data=null;
 const $=id=>document.getElementById(id);
@@ -109,7 +110,7 @@ function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&l
 async function load(){
   const res=await fetch(API,{headers:{'x-wedding-admin-key':key}});
   if(res.status===401)throw new Error('unauthorized');
-  if(!res.ok)throw new Error('load');
+  if(!res.ok)throw new Error('server');
   data=await res.json(); render();
 }
 function showApp(){ $('loginWrap').style.display='none';$('app').classList.add('show') }
@@ -147,7 +148,7 @@ function renderMessages(){
   const rows=(data.messages||[]).filter(x=>x.is_visible!==false);
   $('messageList').innerHTML=rows.map(m=>`<article class="message"><time>${date(m.created_at)}</time><strong>${esc(m.name)}</strong><p>${esc(m.message)}</p></article>`).join('')||'<div class="empty">Ainda não há recados.</div>';
 }
-$('loginForm').onsubmit=async e=>{e.preventDefault();key=$('accessKey').value.trim();$('loginError').classList.remove('show');$('loginBtn').disabled=true;$('loginBtn').textContent='Entrando...';try{await load();sessionStorage.setItem('jc_admin_key',key)}catch(err){key='';sessionStorage.removeItem('jc_admin_key');$('loginError').classList.add('show')}finally{$('loginBtn').disabled=false;$('loginBtn').textContent='Entrar'}};
+$('loginForm').onsubmit=async e=>{e.preventDefault();key=$('accessKey').value.trim();$('loginError').classList.remove('show');$('loginBtn').disabled=true;$('loginBtn').textContent='Entrando...';try{await load();sessionStorage.setItem('jc_admin_key',key)}catch(err){key='';sessionStorage.removeItem('jc_admin_key');$('loginError').textContent=err.message==='unauthorized'?'Código de acesso inválido.':'Servidor temporariamente indisponível. Tente novamente em instantes.';$('loginError').classList.add('show')}finally{$('loginBtn').disabled=false;$('loginBtn').textContent='Entrar'}};
 $('logoutBtn').onclick=()=>{sessionStorage.removeItem('jc_admin_key');key='';data=null;$('accessKey').value='';showLogin()};
 $('refreshBtn').onclick=async()=>{try{$('refreshBtn').disabled=true;await load()}finally{$('refreshBtn').disabled=false}};
 $('guestFilter').oninput=renderGuests;$('statusFilter').onchange=renderGuests;
