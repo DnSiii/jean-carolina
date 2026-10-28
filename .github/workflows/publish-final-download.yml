@@ -1,0 +1,28 @@
+name: Publicar ZIP final para download direto
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-final-download.yml'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Criar ZIP final
+        run: |
+          set -e
+          mkdir -p downloads
+          test -f assets/hero-original.jpg
+          grep -q '"hero":"assets/hero-original.jpg"' index.html
+          zip -r downloads/Jean-Carolina-Netlify-FINAL-CAPA-ORIGINAL.zip index.html assets noivos
+          rm -f .github/workflows/publish-final-download.yml
+      - name: Publicar arquivo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Publish final Netlify ZIP download"
+          git push
