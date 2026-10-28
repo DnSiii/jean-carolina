@@ -18,7 +18,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p assets
-          for img in hero gallery1 gallery2 gallery3 gallery4 gallery5; do
+          for img in gallery1 gallery2 gallery3; do
             cat .imagechunks/${img}.*.part | base64 --decode > assets/${img}.webp
           done
           rm -rf .imagechunks
