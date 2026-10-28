@@ -260,6 +260,10 @@ document.getElementById('recadoForm').onsubmit=async e=>{
     const ok=document.getElementById('recadoSuccess');ok.classList.add('show');ok.textContent='✓ Seu recado foi publicado com sucesso!';
     toast('Recado publicado ♥');
     await loadRecados();
+  }catch(err){
+    toast('Não foi possível publicar o recado agora.');
+  }finally{btn.disabled=false;btn.textContent='Enviar recado'}
+};
 
 async function loadGiftProgress(){
   try{
@@ -271,7 +275,14 @@ async function loadGiftProgress(){
     renderGifts();
   }catch(err){}
 }
+
 document.getElementById('reportPaid').onclick=async()=>{
+  if(!pendingContributionToken){
+    try{
+      const last=JSON.parse(localStorage.getItem('jc_last_gift')||'null');
+      if(last&&last.token)pendingContributionToken=last.token;
+    }catch{}
+  }
   if(!pendingContributionToken)return toast('Gere o Pix antes de confirmar.');
   const btn=document.getElementById('reportPaid');
   try{
@@ -279,16 +290,18 @@ document.getElementById('reportPaid').onclick=async()=>{
     const res=await fetch(PUBLIC_DB_URL+'/rest/v1/rpc/mark_wedding_contribution_reported_paid',{method:'POST',headers:recadoHeaders(),body:JSON.stringify({p_public_token:pendingContributionToken})});
     if(!res.ok)throw new Error(await res.text());
     toast('Obrigado! Seu presente foi registrado com sucesso ♥');
-    cart={};customGiftValue=0;pendingContributionToken=null;updateCart();await loadGiftProgress();
+    cart={};customGiftValue=0;pendingContributionToken=null;localStorage.removeItem('jc_last_gift');updateCart();await loadGiftProgress();
     document.getElementById('payment').classList.remove('show');document.getElementById('checkoutFields').classList.remove('hide');modal.classList.remove('open');
     document.getElementById('buyerName').value='';document.getElementById('giftMessage').value='';
-  }catch(err){toast('Não foi possível registrar agora.')}finally{btn.disabled=false;btn.textContent='Já realizei o Pix'}
-};
-loadGiftProgress();
   }catch(err){
-    toast('Não foi possível publicar o recado agora.');
-  }finally{btn.disabled=false;btn.textContent='Enviar recado'}
+    console.error('Falha ao registrar Pix informado',err);
+    toast('Não foi possível registrar agora. Tente novamente.');
+  }finally{
+    btn.disabled=false;btn.textContent='Já realizei o Pix';
+  }
 };
+
+loadGiftProgress();
 loadRecados();
 
 </script>
