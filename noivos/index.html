@@ -29,7 +29,7 @@ main{max-width:1240px;margin:auto;padding:34px 22px 70px}.hero{display:flex;just
 .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}.filters .field{width:auto;min-width:190px}
 .table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;min-width:760px}.table th,.table td{text-align:left;padding:12px 10px;border-bottom:1px solid #efede6;font-size:11px;vertical-align:top}.table th{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}.table tr:last-child td{border-bottom:0}
 .badge{display:inline-flex;align-items:center;border-radius:999px;padding:6px 9px;font-size:9px;font-weight:600;white-space:nowrap}.yes{background:#e9f2e5;color:#46623b}.no{background:#f6e9e7;color:#934a44}.pending{background:#f4f0e7;color:#8a7048}.paid{background:#e8f0e5;color:#49633e}.generated{background:#eef0f2;color:#66717a}.confirmed{background:#e4efe8;color:#346247}
-.gift-progress{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.gift-card{border:1px solid var(--line);border-radius:16px;padding:15px;background:#fcfbf8}.gift-card h3{margin:0 0 8px;font:500 20px 'Cormorant Garamond',serif}.progress-row{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:10px;color:var(--muted)}.bar{height:7px;background:#ecebe5;border-radius:99px;overflow:hidden;margin-top:10px}.bar>i{display:block;height:100%;background:var(--olive);border-radius:99px}
+.gift-progress{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.gift-card{border:1px solid var(--line);border-radius:16px;padding:15px;background:#fcfbf8}.gift-card h3{margin:0 0 8px;font:500 20px 'Cormorant Garamond',serif}.progress-row{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:10px;color:var(--muted)}.bar{height:7px;background:#ecebe5;border-radius:99px;overflow:hidden;margin-top:10px}.bar>i{display:block;height:100%;background:var(--olive);border-radius:99px}.cash-gift-card{background:linear-gradient(135deg,#fcfbf8,#f6f1f7)}.cash-gift-label{font-size:10px;color:var(--muted);margin-bottom:4px}.cash-gift-total{font:500 25px 'Cormorant Garamond',serif;color:var(--olive2)}
 .message-list{display:grid;gap:10px}.message{border-left:3px solid #b0b795;background:#fcfbf8;border-radius:0 14px 14px 0;padding:13px 15px}.message strong{font:500 20px 'Cormorant Garamond',serif;color:var(--olive2)}.message time{float:right;font-size:9px;color:var(--muted)}.message p{font-size:11px;line-height:1.7;color:#5e6159;margin:6px 0 0;white-space:pre-wrap}
 .note{margin-top:12px;padding:11px 13px;background:#f6f3eb;border-radius:11px;font-size:10px;line-height:1.6;color:#756a57}.empty{text-align:center;padding:30px;color:var(--muted);font-size:11px}
 @media(max-width:1000px){.summary{grid-template-columns:repeat(3,1fr)}.gift-progress{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.summary{grid-template-columns:repeat(2,1fr)}.gift-progress{grid-template-columns:1fr}.hero{align-items:flex-start;flex-direction:column}.topbar{padding:12px 15px}.brand{font-size:27px}main{padding:26px 14px 60px}.actions .btn{padding:10px 12px}.section-head{align-items:flex-start;flex-direction:column}}
@@ -107,7 +107,7 @@ main{max-width:1240px;margin:auto;padding:34px 22px 70px}.hero{display:flex;just
 
   <section class="section">
     <div class="section-head"><div><div class="kicker">Lista de casamento</div><h2>Andamento dos presentes</h2></div></div>
-    <div class="panel"><div class="gift-progress" id="giftProgress"></div><div class="note">As cotas abaixo consideram somente pagamentos que os noivos marcaram como <strong>Pix realizado</strong> após conferirem o recebimento na conta.</div></div>
+    <div class="panel"><div class="gift-progress" id="giftProgress"></div><div class="note">Os presentes físicos mostram as <strong>cotas preenchidas</strong>. Nos cartões presente, é exibido apenas o <strong>valor arrecadado</strong>. Em ambos os casos, entram no cálculo somente pagamentos marcados pelos noivos como <strong>Pix realizado</strong>.</div></div>
   </section>
 
   <section class="section">
@@ -132,6 +132,12 @@ const gifts=[
   {id:'rack',name:'Rack de TV',max:3},
   {id:'sofa',name:'Ajuda para o Sofá',max:10},
   {id:'bedspread',name:'Cobre Leito Queen',max:1}
+];
+const cashGifts=[
+  {id:'card100',name:'Cartão Presente R$ 100'},
+  {id:'card200',name:'Cartão Presente R$ 200'},
+  {id:'card300',name:'Cartão Presente R$ 300'},
+  {id:'cardfree',name:'Cartão Presente — Valor livre'}
 ];
 let key=sessionStorage.getItem('jc_admin_key')||'', data=null, guestLimit=10;
 const $=id=>document.getElementById(id);
@@ -193,9 +199,18 @@ $('contribBody').onchange=async e=>{
 };
 function renderGiftProgress(){
   const paid=(data.contributions||[]).filter(c=>c.status==='confirmed');
-  const count={};
-  paid.forEach(c=>(c.wedding_contribution_items||[]).forEach(i=>count[i.gift_id]=(count[i.gift_id]||0)+Number(i.quantity||0)));
-  $('giftProgress').innerHTML=gifts.map(g=>{const n=Math.min(g.max,count[g.id]||0),pct=Math.min(100,(n/g.max)*100);return `<div class="gift-card"><h3>${esc(g.name)}</h3><div class="progress-row"><span>Cotas preenchidas</span><strong>${n}/${g.max}</strong></div><div class="bar"><i style="width:${pct}%"></i></div></div>`}).join('');
+  const count={},amount={};
+  paid.forEach(c=>(c.wedding_contribution_items||[]).forEach(i=>{
+    const qty=Number(i.quantity||0),unit=Number(i.unit_price||0);
+    count[i.gift_id]=(count[i.gift_id]||0)+qty;
+    amount[i.gift_id]=(amount[i.gift_id]||0)+(qty*unit);
+  }));
+  const physical=gifts.map(g=>{
+    const n=Math.min(g.max,count[g.id]||0),pct=Math.min(100,(n/g.max)*100);
+    return `<div class="gift-card"><h3>${esc(g.name)}</h3><div class="progress-row"><span>Cotas preenchidas</span><strong>${n}/${g.max}</strong></div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
+  }).join('');
+  const cash=cashGifts.map(g=>`<div class="gift-card cash-gift-card"><h3>${esc(g.name)}</h3><div class="cash-gift-label">Valor arrecadado</div><div class="cash-gift-total">${money(amount[g.id]||0)}</div></div>`).join('');
+  $('giftProgress').innerHTML=physical+cash;
 }
 function renderMessages(){
   const rows=(data.messages||[]).filter(x=>x.is_visible!==false);
