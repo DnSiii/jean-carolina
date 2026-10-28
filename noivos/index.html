@@ -33,6 +33,13 @@ main{max-width:1240px;margin:auto;padding:34px 22px 70px}.hero{display:flex;just
 .message-list{display:grid;gap:10px}.message{border-left:3px solid #b0b795;background:#fcfbf8;border-radius:0 14px 14px 0;padding:13px 15px}.message strong{font:500 20px 'Cormorant Garamond',serif;color:var(--olive2)}.message time{float:right;font-size:9px;color:var(--muted)}.message p{font-size:11px;line-height:1.7;color:#5e6159;margin:6px 0 0;white-space:pre-wrap}
 .note{margin-top:12px;padding:11px 13px;background:#f6f3eb;border-radius:11px;font-size:10px;line-height:1.6;color:#756a57}.empty{text-align:center;padding:30px;color:var(--muted);font-size:11px}
 @media(max-width:1000px){.summary{grid-template-columns:repeat(3,1fr)}.gift-progress{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.summary{grid-template-columns:repeat(2,1fr)}.gift-progress{grid-template-columns:1fr}.hero{align-items:flex-start;flex-direction:column}.topbar{padding:12px 15px}.brand{font-size:27px}main{padding:26px 14px 60px}.actions .btn{padding:10px 12px}.section-head{align-items:flex-start;flex-direction:column}}
+
+.load-more-wrap{display:flex;justify-content:center;padding-top:14px}
+.load-more{min-width:210px}
+.message-actions{display:flex;align-items:center;gap:8px;float:right;margin-left:12px}
+.message-actions time{float:none}
+.delete-msg{border:1px solid #ead5d2;background:#fff7f6;color:#9a4c45;border-radius:10px;padding:7px 9px;font-size:10px;font-weight:600}
+.delete-msg:hover{background:#f8e8e6}
 </style>
 </head>
 <body>
@@ -71,6 +78,7 @@ main{max-width:1240px;margin:auto;padding:34px 22px 70px}.hero{display:flex;just
         <select class="field" id="statusFilter"><option value="all">Todos</option><option value="Sim">Confirmados</option><option value="Não">Não irão</option><option value="pending">Pendentes</option></select>
       </div>
       <div class="table-wrap"><table class="table"><thead><tr><th>Convidado</th><th>Status</th><th>Última atualização</th></tr></thead><tbody id="rsvpBody"></tbody></table></div>
+      <div class="load-more-wrap"><button class="btn secondary load-more" id="loadMoreGuests" type="button">Ver mais convidados</button></div>
     </div>
   </section>
 
@@ -102,7 +110,7 @@ const gifts=[
   {id:'sofa',name:'Ajuda para o Sofá',max:10},
   {id:'bedspread',name:'Cobre Leito Queen',max:1}
 ];
-let key=sessionStorage.getItem('jc_admin_key')||'', data=null;
+let key=sessionStorage.getItem('jc_admin_key')||'', data=null, guestLimit=30;
 const $=id=>document.getElementById(id);
 const money=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v||0));
 const date=v=>v?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(v)):'—';
@@ -126,9 +134,12 @@ function render(){
 }
 function renderGuests(){
   const q=$('guestFilter').value.trim().toLowerCase(), status=$('statusFilter').value;
-  let rows=(data.guests||[]).filter(g=>!q||g.name.toLowerCase().includes(q)).filter(g=>status==='all'||(status==='pending'?!g.attendance:g.attendance===status));
-  $('rsvpCount').textContent=rows.length+' convidado(s)';
-  $('rsvpBody').innerHTML=rows.map(g=>`<tr><td><strong>${esc(g.name)}</strong></td><td>${g.attendance==='Sim'?'<span class="badge yes">Confirmado</span>':g.attendance==='Não'?'<span class="badge no">Não irá</span>':'<span class="badge pending">Pendente</span>'}</td><td>${date(g.updated_at)}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">Nenhum convidado encontrado.</td></tr>';
+  const rows=(data.guests||[]).filter(g=>!q||g.name.toLowerCase().includes(q)).filter(g=>status==='all'||(status==='pending'?!g.attendance:g.attendance===status));
+  const visible=rows.slice(0,guestLimit);
+  $('rsvpCount').textContent=visible.length<rows.length?('Mostrando '+visible.length+' de '+rows.length+' convidado(s)'):(rows.length+' convidado(s)');
+  $('rsvpBody').innerHTML=visible.map(g=>`<tr><td><strong>${esc(g.name)}</strong></td><td>${g.attendance==='Sim'?'<span class="badge yes">Confirmado</span>':g.attendance==='Não'?'<span class="badge no">Não irá</span>':'<span class="badge pending">Pendente</span>'}</td><td>${date(g.updated_at)}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">Nenhum convidado encontrado.</td></tr>';
+  const more=$('loadMoreGuests');
+  if(more){more.style.display=visible.length<rows.length?'inline-flex':'none';more.textContent=visible.length<rows.length?('Ver mais '+Math.min(30,rows.length-visible.length)+' convidados'):'Todos exibidos'}
 }
 function renderContributions(){
   const rows=data.contributions||[];
@@ -146,12 +157,30 @@ function renderGiftProgress(){
 }
 function renderMessages(){
   const rows=(data.messages||[]).filter(x=>x.is_visible!==false);
-  $('messageList').innerHTML=rows.map(m=>`<article class="message"><time>${date(m.created_at)}</time><strong>${esc(m.name)}</strong><p>${esc(m.message)}</p></article>`).join('')||'<div class="empty">Ainda não há recados.</div>';
+  $('messageList').innerHTML=rows.map(m=>`<article class="message"><div class="message-actions"><time>${date(m.created_at)}</time><button class="delete-msg" type="button" data-delete-message="${m.id}">Excluir</button></div><strong>${esc(m.name)}</strong><p>${esc(m.message)}</p></article>`).join('')||'<div class="empty">Ainda não há recados.</div>';
 }
+$('messageList').onclick=async e=>{
+  const btn=e.target.closest('[data-delete-message]');
+  if(!btn)return;
+  const id=Number(btn.dataset.deleteMessage);
+  if(!id)return;
+  if(!confirm('Excluir este recado do site?'))return;
+  btn.disabled=true;btn.textContent='Excluindo...';
+  try{
+    const res=await fetch(API,{method:'DELETE',headers:{'x-wedding-admin-key':key,'Content-Type':'application/json'},body:JSON.stringify({id})});
+    if(!res.ok)throw new Error('delete');
+    data.messages=(data.messages||[]).filter(m=>Number(m.id)!==id);
+    renderMessages();
+    $('messageCount').textContent=(data.messages||[]).filter(x=>x.is_visible!==false).length+' recado(s)';
+  }catch(err){
+    alert('Não foi possível excluir o recado agora.');
+    btn.disabled=false;btn.textContent='Excluir';
+  }
+};
 $('loginForm').onsubmit=async e=>{e.preventDefault();key=$('accessKey').value.trim();$('loginError').classList.remove('show');$('loginBtn').disabled=true;$('loginBtn').textContent='Entrando...';try{await load();sessionStorage.setItem('jc_admin_key',key)}catch(err){key='';sessionStorage.removeItem('jc_admin_key');$('loginError').textContent=err.message==='unauthorized'?'Código de acesso inválido.':'Servidor temporariamente indisponível. Tente novamente em instantes.';$('loginError').classList.add('show')}finally{$('loginBtn').disabled=false;$('loginBtn').textContent='Entrar'}};
 $('logoutBtn').onclick=()=>{sessionStorage.removeItem('jc_admin_key');key='';data=null;$('accessKey').value='';showLogin()};
 $('refreshBtn').onclick=async()=>{try{$('refreshBtn').disabled=true;await load()}finally{$('refreshBtn').disabled=false}};
-$('guestFilter').oninput=renderGuests;$('statusFilter').onchange=renderGuests;
+$('guestFilter').oninput=()=>{guestLimit=30;renderGuests()};$('statusFilter').onchange=()=>{guestLimit=30;renderGuests()};$('loadMoreGuests').onclick=()=>{guestLimit+=30;renderGuests()};
 if(key){load().catch(()=>{sessionStorage.removeItem('jc_admin_key');key='';showLogin()})}
 </script>
 </body>
