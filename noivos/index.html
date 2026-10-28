@@ -48,6 +48,9 @@ main{max-width:1240px;margin:auto;padding:34px 22px 70px}.hero{display:flex;just
 .danger-btn:hover{background:#f8e8e6}
 .status-select{border:1px solid var(--line);border-radius:999px;padding:7px 10px;background:#fff;font-size:9px;font-weight:600;color:var(--olive2);min-width:132px}
 .status-select.pending{background:#f4f0e7;color:#8a7048}.status-select.confirmed{background:#e4efe8;color:#346247}
+.guest-pay-status{display:inline-flex;align-items:center;max-width:190px;padding:7px 10px;border-radius:12px;font-size:9px;font-weight:600;line-height:1.35}
+.guest-pay-status.yes{background:#e4efe8;color:#346247;border:1px solid #cfe1d5}
+.guest-pay-status.no{background:#f7ece9;color:#8a554e;border:1px solid #ead5d2}
 @media(max-width:650px){.guest-tools{align-items:stretch}.guest-tools .field,.guest-tools .btn{width:100%}}
 </style>
 </head>
@@ -109,7 +112,7 @@ main{max-width:1240px;margin:auto;padding:34px 22px 70px}.hero{display:flex;just
 
   <section class="section">
     <div class="section-head"><div><div class="kicker">Contribuições</div><h2>Presentes enviados</h2></div><small id="contribCount"></small></div>
-    <div class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>Nome</th><th>Presente(s)</th><th>Total</th><th>Status</th><th>Mensagem</th><th>Data</th></tr></thead><tbody id="contribBody"></tbody></table></div></div>
+    <div class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>Nome</th><th>Presente(s)</th><th>Total</th><th>Status</th><th>Status convidado</th><th>Mensagem</th><th>Data</th></tr></thead><tbody id="contribBody"></tbody></table></div></div>
   </section>
 
   <section class="section">
@@ -168,8 +171,11 @@ function renderContributions(){
       <option value="reported_paid" ${confirmed?'':'selected'}>Pix pendente</option>
       <option value="confirmed" ${confirmed?'selected':''}>Pix realizado</option>
     </select>`;
-    return `<tr><td><strong>${esc(c.buyer_name)}</strong></td><td>${items||'—'}</td><td><strong>${money(c.total)}</strong></td><td>${status}</td><td>${esc(c.message||'—')}</td><td>${date(c.created_at)}</td></tr>`;
-  }).join('')||'<tr><td colspan="6" class="empty">Ainda não há presentes registrados.</td></tr>';
+    const guestStatus=c.guest_reported_paid
+      ? '<span class="guest-pay-status yes">Convidado informou que realizou o Pix</span>'
+      : '<span class="guest-pay-status no">Convidado informou que NÃO realizou o Pix</span>';
+    return `<tr><td><strong>${esc(c.buyer_name)}</strong></td><td>${items||'—'}</td><td><strong>${money(c.total)}</strong></td><td>${status}</td><td>${guestStatus}</td><td>${esc(c.message||'—')}</td><td>${date(c.created_at)}</td></tr>`;
+  }).join('')||'<tr><td colspan="7" class="empty">Ainda não há presentes registrados.</td></tr>';
 }
 $('contribBody').onchange=async e=>{
   const sel=e.target.closest('[data-contribution-status]');
