@@ -1,0 +1,25 @@
+name: Exportar ZIP Netlify atual
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/export-netlify-current.yml'
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar versão
+        run: |
+          test -f index.html
+          test -f noivos/index.html
+          test -f assets/hero-original.jpg
+          grep -q '"hero":"assets/hero-original.jpg"' index.html
+      - name: Criar ZIP
+        run: zip -r jean-carolina-netlify-FINAL.zip index.html assets noivos
+      - name: Salvar pacote
+        uses: actions/upload-artifact@v4
+        with:
+          name: jean-carolina-netlify-FINAL
+          path: jean-carolina-netlify-FINAL.zip
+          retention-days: 1
